@@ -6,6 +6,8 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class RLEEncoderWithEspaceByte : IEncoder
 {
+    public string DisplayName => "RLE-escape";
+
     private const string MetadataKey = "RleEscapeByte";
     private const int MinRunLength = 4; // ниже этого порога escape-кодирование не выгодно
 

@@ -4,4 +4,6 @@ public interface IEncoder
 {
     public EncodingResult Encode(ReadOnlyMemory<byte> input);
     public EncodingResult Decode(ReadOnlyMemory<byte> input, Dictionary<string, object>? metadata);
+
+    public string DisplayName { get; }
 }

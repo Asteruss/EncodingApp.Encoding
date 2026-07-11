@@ -5,6 +5,8 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class DeltaEncoder : IEncoder
 {
+    public string DisplayName => "Delta";
+
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;

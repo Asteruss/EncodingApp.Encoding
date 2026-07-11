@@ -10,7 +10,6 @@ public static class CbinFormatter
     private const byte MetaTypeInt = 1;
     private const byte MetaTypeIntArray = 2;
 
-    // ИЗМЕНЕНО: Принимаем PipelineResult
     public static byte[] Pack(PipelineResult pipelineResult, int originalSize, string[] stepNames)
     {
         using var ms = new MemoryStream();

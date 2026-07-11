@@ -5,6 +5,7 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class RLEEncoder : IEncoder
 {
+    public string DisplayName => "RLE (Кодирование длин серий)";
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;

@@ -5,6 +5,8 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class MTFEncoder : IEncoder
 {
+    public string DisplayName => "MTF";
+
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;

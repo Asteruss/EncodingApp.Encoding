@@ -7,6 +7,7 @@ public class LZ77Encoder : IEncoder
 {
     private const int WindowSize = 32768;
     private const int MaxMatchLength = 255;
+    public string DisplayName => "LZ77";
 
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {

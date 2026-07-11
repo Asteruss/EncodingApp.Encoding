@@ -9,6 +9,8 @@ public class LZWEncoder : IEncoder
     private const int MaxValue = (1 << Bits) - 1;   
     private const int MaxCode = MaxValue - 1;        
     private const int MaxStackLength = 8192;
+    public string DisplayName => "LZW";
+
 
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {

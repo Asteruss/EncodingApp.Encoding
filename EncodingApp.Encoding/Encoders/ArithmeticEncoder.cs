@@ -5,6 +5,8 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class ArithmeticEncoder : IEncoder
 {
+    public string DisplayName => "Арифметическое кодирование";
+
     private const string MetadataKey = "ArithmeticFreqs";
 
     private const uint MSB = 0x80000000;

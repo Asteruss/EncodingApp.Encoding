@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="EncodingApp.Encoding/EncodingApp.Encoding.csproj" />
+  <Project Path="EncodingApp.Web/encodingapp.web.client/encodingapp.web.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="EncodingApp.Web/EncodingApp.Web.Server/EncodingApp.Web.Server.csproj" Id="cf145a7b-c4ef-41e2-adea-726ee4750975" />
+  <Project Path="TestApp/TestApp.csproj" />
+</Solution>
