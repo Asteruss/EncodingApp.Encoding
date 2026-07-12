@@ -36,17 +36,15 @@ public class CompressionController : ControllerBase
         string[]? selectedAlgorithms;
         try
         {
-            selectedAlgorithms = JsonSerializer.Deserialize<string[]>(algorithms);
+            selectedAlgorithms = algorithms?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (selectedAlgorithms == null || selectedAlgorithms.Length == 0) return BadRequest("Не выбрано алгоритмов.");
         }
         catch
         {
-            return BadRequest("Неверный формат списка алгоритмов.");
+            return BadRequest("Неверный формат списка алгоритмов. Ожидается: RLEEncoder,MTFEncoder,HuffmanEncoder");
         }
 
         var encoders = selectedAlgorithms.Select(AlgorithmRegistry.Create).ToArray();
-        var pipeline = new CompressionPipeline(encoders, _analyzers);
-
         var results = new List<object>();
 
         foreach (var file in files)
@@ -56,18 +54,27 @@ public class CompressionController : ControllerBase
             await stream.CopyToAsync(ms);
             byte[] originalBytes = ms.ToArray();
 
-            PipelineResult encodedResult = pipeline.ProcessEncode(originalBytes);
+            var localAnalyzers = new CompositeAnalyzer(
+                new TimingAnalyzer(),
+                new CompressionRatioAnalyzer(),
+                new GcPressureAnalyzer()
+            );
 
-            byte[] cbinBytes = CbinFormatter.Pack(encodedResult, originalBytes.Length, selectedAlgorithms);
+            // Передаем локальные анализаторы в этот конвейер
+            var pipeline = new CompressionPipeline(encoders, localAnalyzers);
+
+            PipelineResult encodedResult = pipeline.ProcessEncode(originalBytes);
+            byte[] cbinBytes = CbinFormatter.Pack(encodedResult, originalBytes.Length, file.FileName, selectedAlgorithms);
             string base64Cbin = Convert.ToBase64String(cbinBytes);
 
-            var metrics = _analyzers.GetReport();
+            // Забираем отчет ТОЛЬКО для текущего файла
+            var metrics = localAnalyzers.GetReport();
 
             results.Add(new
             {
                 originalName = file.FileName,
                 chain = selectedAlgorithms,
-                cbinBase64 = base64Cbin,
+                base64Cbin,
                 metrics
             });
         }
@@ -84,37 +91,40 @@ public class CompressionController : ControllerBase
 
         foreach (var file in files)
         {
-            using var stream = file.OpenReadStream();
-            using var ms = new MemoryStream();
-            await stream.CopyToAsync(ms);
-            byte[] cbinBytes = ms.ToArray();
-
-            // Распаковываем заголовок
-            CbinPackage package = CbinFormatter.Unpack(cbinBytes);
-
-            // Динамически восстанавливаем цепочку из файла!
-            var decoders = package.StepNames.Select(AlgorithmRegistry.Create).ToArray();
-            var pipeline = new CompressionPipeline(decoders, _analyzers);
-
-            // Выполняем распаковку
-            PipelineResult decodedResult = pipeline.ProcessDecode(package.CompressedData, package.Metadata);
-
-            // Конвертируем в Base64
-            string base64File = Convert.ToBase64String(decodedResult.Data);
-
-            // Простая логика для восстановления имени (отрезаем .cbin)
-            string restoredName = package.OriginalSize > 0 ? file.FileName.Replace(".cbin", "_restored.cbin") : file.FileName;
-
-            var metrics = _analyzers.GetReport();
-
-            results.Add(new
+            try
             {
-                originalName = file.FileName,
-                restoredName = restoredName,
-                chain = package.StepNames,
-                fileBase64 = base64File,
-                metrics = metrics
-            });
+                using var stream = file.OpenReadStream();
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                byte[] cbinBytes = ms.ToArray();
+
+                CbinPackage package = CbinFormatter.Unpack(cbinBytes);
+                var decoders = package.StepNames.Select(name => AlgorithmRegistry.Create(name)).ToArray();
+                var localAnalyzers = new CompositeAnalyzer(new TimingAnalyzer(), new CompressionRatioAnalyzer());
+                var pipeline = new CompressionPipeline(decoders, localAnalyzers);
+
+                PipelineResult decodedResult = pipeline.ProcessDecode(package.CompressedData, package.Metadata);
+
+                string base64File = Convert.ToBase64String(decodedResult.Data.ToArray());
+
+                string restoredName = file.FileName.Replace(".cbin", package.OriginalExtension);
+
+                var metrics = localAnalyzers.GetReport();
+
+                results.Add(new
+                {
+                    originalName = file.FileName,
+                    restoredName,
+                    chain = string.Join(" -> ", package.StepNames),
+                    base64File,
+                    metrics
+                });
+            }
+            catch (Exception ex)
+            {
+                // Если файл оказался кривым (не .cbin или сломанный старым форматом), просто логируем и идем к следующему.
+                Console.WriteLine($"Ошибка распаковки {file.FileName}: {ex.Message}");
+            }
         }
 
         return Ok(results);

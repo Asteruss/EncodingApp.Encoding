@@ -1,13 +1,34 @@
-// import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, Outlet, Navigate } from 'react-router-dom';
 import './App.css';
-
+import EncodePage from './pages/EncodePage';
+import DecodePage from './pages/DecodePage';
 function App() {
     return (
-        <div>
-            <p>hello</p>
-        </div>
+        <BrowserRouter>
+            <div className="app-container">
+                {/* Боковое меню */}
+                <nav className="sidebar">
+                    <h2>Encoding Service</h2>
+                    <ul>
+                        <li><NavLink to="/encode" className={({ isActive }) => isActive ? "active" : ""}>Кодирование</NavLink></li>
+                        <li><NavLink to="/decode">Декодирование</NavLink></li>
+                        <li><NavLink to="/compare">Сравнение</NavLink></li>
+                        <li><NavLink to="/info">Справка</NavLink></li>
+                    </ul>
+                </nav>
+
+                {/* Основной контент страниц */}
+                <main className="content">
+                    <Routes>
+                        <Route path="/" element={<Navigate to="/encode" replace />} />
+                        <Route path="/encode" element={<EncodePage />} />
+                        <Route path="/decode" element={<DecodePage />} />
+                    </Routes>
+                    <Outlet />
+                </main>
+            </div>
+        </BrowserRouter>
     );
-    
 }
 
 export default App;

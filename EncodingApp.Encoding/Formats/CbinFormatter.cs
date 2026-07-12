@@ -10,7 +10,7 @@ public static class CbinFormatter
     private const byte MetaTypeInt = 1;
     private const byte MetaTypeIntArray = 2;
 
-    public static byte[] Pack(PipelineResult pipelineResult, int originalSize, string[] stepNames)
+    public static byte[] Pack(PipelineResult pipelineResult, int originalSize, string filename, string[] stepNames)
     {
         using var ms = new MemoryStream();
         using var writer = new BinaryWriter(ms, SystemEncoding.UTF8, leaveOpen: true);
@@ -18,6 +18,7 @@ public static class CbinFormatter
         writer.Write(SystemEncoding.ASCII.GetBytes(Magic));
         writer.Write(Version);
         writer.Write(originalSize);
+        writer.Write(Path.GetExtension(filename));
 
         writer.Write((ushort)stepNames.Length);
         foreach (var name in stepNames)
@@ -62,6 +63,7 @@ public static class CbinFormatter
         if (version != Version) throw new InvalidDataException($"Неподдерживаемая версия: {version}");
 
         int originalSize = reader.ReadInt32();
+        string originalExt = reader.ReadString();
 
         int stepsCount = reader.ReadUInt16();
         string[] stepNames = new string[stepsCount];
@@ -78,7 +80,7 @@ public static class CbinFormatter
         }
 
         ReadOnlyMemory<byte> compressedData = fileBytes.Slice((int)ms.Position);
-        return new CbinPackage(originalSize, stepNames, metadata, compressedData);
+        return new CbinPackage(originalSize, stepNames, metadata, compressedData, originalExt);
     }
 }
 
@@ -88,8 +90,13 @@ public readonly struct CbinPackage
     public string[] StepNames { get; }
     public Dictionary<string, object> Metadata { get; }
     public ReadOnlyMemory<byte> CompressedData { get; }
-    public CbinPackage(int originalSize, string[] stepNames, Dictionary<string, object> metadata, ReadOnlyMemory<byte> compressedData)
+    public string OriginalExtension { get; }
+    public CbinPackage(int originalSize, string[] stepNames, Dictionary<string, object>? metadata, ReadOnlyMemory<byte> compressedData, string originalExtension)
     {
-        OriginalSize = originalSize; StepNames = stepNames; Metadata = metadata; CompressedData = compressedData;
+        OriginalSize = originalSize;
+        OriginalExtension = originalExtension;
+        StepNames = stepNames;
+        Metadata = metadata ?? new Dictionary<string, object>();
+        CompressedData = compressedData;
     }
 }

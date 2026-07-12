@@ -17,8 +17,7 @@ byte[] originalBytes = File.ReadAllBytes(inputFilePath);
 Console.WriteLine($"Исходный файл: {inputFilePath} ({originalBytes.Length} байт)");
 
 var analyzers = new CompositeAnalyzer(new TimingAnalyzer(), new CompressionRatioAnalyzer());
-//var encoders = new IEncoder[] { new RLEEncoderWithEspaceByte() };
-var encoders = new IEncoder[] { new BWTEncoder(), new MTFEncoder(), new HuffmanEncoder() };
+var encoders = new IEncoder[] { new BWTEncoder(), new MTFEncoder(), new RLE0Encoder(), new HuffmanEncoder() };
 var encodePipeline = new CompressionPipeline(encoders, analyzers);
 
 Console.WriteLine("Сжатие...");
