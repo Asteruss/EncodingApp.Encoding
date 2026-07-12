@@ -5,7 +5,7 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class DeltaEncoder : IEncoder
 {
-    public string DisplayName => "Delta";
+    public string DisplayName => "Delta-кодирование";
 
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {

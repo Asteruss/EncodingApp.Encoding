@@ -5,25 +5,31 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class LZWEncoder : IEncoder
 {
-    private const int Bits = 14;
-    private const int MaxValue = (1 << Bits) - 1;   
-    private const int MaxCode = MaxValue - 1;        
-    private const int MaxStackLength = 8192;
-    public string DisplayName => "LZW";
+    private const string MetadataKey = "LzwOriginalLength";
 
+    private const int Bits = 14;
+    private const int MaxValue = (1 << Bits) - 1;   // 16383 — зарезервирован как EOF
+    private const int ClearCode = MaxValue - 1;      // 16382 — сигнал сброса словаря
+    private const int MaxCode = ClearCode - 1;        // 16381 — последний код, доступный словарю
+    private const int FirstCode = 256;
+    private const int MaxStackLength = MaxCode + 1;  
+
+    public string DisplayName => "LZW";
 
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;
-        if (inputSpan.IsEmpty)
+        int n = inputSpan.Length;
+
+        if (n == 0)
             return new EncodingResult { RentedBuffer = null, Length = 0, Metadata = null };
 
-        int maxOutputSize = (inputSpan.Length * Bits / 8) + 1024;
+        int maxOutputSize = (n * Bits / 8) + 1024;
         byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(maxOutputSize);
         Span<byte> outputSpan = rentedBuffer.AsSpan();
 
         var dict = new Dictionary<int, int>(MaxCode);
-        int nextCode = 256;
+        int nextCode = FirstCode;
 
         int outIndex = 0;
         uint bitBuffer = 0;
@@ -31,7 +37,7 @@ public class LZWEncoder : IEncoder
 
         int stringCode = inputSpan[0];
 
-        for (int i = 1; i < inputSpan.Length; i++)
+        for (int i = 1; i < n; i++)
         {
             int character = inputSpan[i];
             int key = (stringCode << 8) | character;
@@ -45,8 +51,18 @@ public class LZWEncoder : IEncoder
                 WriteCode(outputSpan, ref outIndex, ref bitBuffer, ref bitCount, stringCode);
 
                 if (nextCode <= MaxCode)
+                {
                     dict.Add(key, nextCode++);
-                
+                }
+                else
+                {
+                    // словарь заполнен — сбрасываем его, сигнализируя декодеру ClearCode,
+                    // чтобы кодировщик продолжал адаптироваться к статистике до конца файла
+                    WriteCode(outputSpan, ref outIndex, ref bitBuffer, ref bitCount, ClearCode);
+                    dict.Clear();
+                    nextCode = FirstCode;
+                }
+
                 stringCode = character;
             }
         }
@@ -56,29 +72,42 @@ public class LZWEncoder : IEncoder
 
         if (bitCount > 0)
             outputSpan[outIndex++] = (byte)(bitBuffer >> 24);
-        
+
+        var metadata = new Dictionary<string, object> { { MetadataKey, n } };
 
         return new EncodingResult
         {
             RentedBuffer = rentedBuffer,
             Length = outIndex,
-            Metadata = null
+            Metadata = metadata
         };
     }
 
     public EncodingResult Decode(ReadOnlyMemory<byte> input, Dictionary<string, object>? metadata)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;
+
         if (inputSpan.IsEmpty)
             return new EncodingResult { RentedBuffer = null, Length = 0, Metadata = null };
 
-        int maxOutputSize = (inputSpan.Length * 8 / Bits) * 3;
-        byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(maxOutputSize);
+        if (metadata == null || !metadata.TryGetValue(MetadataKey, out object? obj))
+            throw new InvalidOperationException("LZW Decode: Missing LzwOriginalLength in metadata");
+
+        int originalLength = obj switch
+        {
+            int v => v,
+            _ => throw new InvalidOperationException("LZW Decode: Invalid LzwOriginalLength metadata type")
+        };
+
+        if (originalLength == 0)
+            return new EncodingResult { RentedBuffer = null, Length = 0, Metadata = null };
+
+        byte[] rentedBuffer = ArrayPool<byte>.Shared.Rent(originalLength);
         Span<byte> outputSpan = rentedBuffer.AsSpan();
 
         int[] prefixCodes = new int[MaxCode + 1];
         byte[] appendChars = new byte[MaxCode + 1];
-        int nextCode = 256;
+        int nextCode = FirstCode;
 
         int outIndex = 0;
         int inIndex = 0;
@@ -101,7 +130,21 @@ public class LZWEncoder : IEncoder
         int newCode;
         while ((newCode = ReadCode(inputSpan, ref inIndex, ref bitBuffer, ref bitCount)) != MaxValue)
         {
-            int currentCode = newCode;  
+            if (newCode == ClearCode)
+            {
+                // синхронный сброс словаря вслед за кодировщиком
+                nextCode = FirstCode;
+
+                newCode = ReadCode(inputSpan, ref inIndex, ref bitBuffer, ref bitCount);
+                if (newCode == MaxValue) break;
+
+                outputSpan[outIndex++] = (byte)newCode;
+                oldCode = newCode;
+                character = newCode;
+                continue;
+            }
+
+            int currentCode = newCode;
             int stackPtr = 0;
 
             if (newCode >= nextCode)
@@ -129,7 +172,7 @@ public class LZWEncoder : IEncoder
                 nextCode++;
             }
 
-            oldCode = currentCode;  
+            oldCode = currentCode;
         }
 
         return new EncodingResult
@@ -162,7 +205,7 @@ public class LZWEncoder : IEncoder
         }
 
         if (bitCount < Bits)
-            return MaxValue; 
+            return MaxValue;
 
         int code = (int)(bitBuffer >> (32 - Bits));
         bitBuffer <<= Bits;

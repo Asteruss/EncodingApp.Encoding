@@ -2,6 +2,7 @@
 using EncodingApp.Encoding.Core;
 using EncodingApp.Encoding.Encoders;
 using EncodingApp.Encoding.Formats;
+using System.Net.Http.Headers;
 using System.Text.Json;
 
 //string inputFilePath = @"C:\Users\Artem\Desktop\вуз\учебная практика 2 курс\pics\milp_gq9s_210621.jpg";
@@ -17,7 +18,8 @@ byte[] originalBytes = File.ReadAllBytes(inputFilePath);
 Console.WriteLine($"Исходный файл: {inputFilePath} ({originalBytes.Length} байт)");
 
 var analyzers = new CompositeAnalyzer(new TimingAnalyzer(), new CompressionRatioAnalyzer());
-var encoders = new IEncoder[] { new BWTEncoder(), new MTFEncoder(), new RLE0Encoder(), new HuffmanEncoder() };
+//var encoders = new IEncoder[] { new BWTEncoder(), new MTFEncoder(), new RLE0Encoder(), new HuffmanEncoder() };
+var encoders = new IEncoder[] { new DCTEncoder(), new RLEEncoderWithEspaceByte() };
 var encodePipeline = new CompressionPipeline(encoders, analyzers);
 
 Console.WriteLine("Сжатие...");
@@ -25,7 +27,7 @@ PipelineResult encodedResult = encodePipeline.ProcessEncode(originalBytes);
 
 // Формируем .cbin файл. Никакого управления памятью!
 string[] stepNames = encoders.Select(e => e.GetType().Name).ToArray();
-byte[] cbinFileBytes = CbinFormatter.Pack(encodedResult, originalBytes.Length, stepNames);
+byte[] cbinFileBytes = CbinFormatter.Pack(encodedResult, originalBytes.Length, inputFilePath, stepNames);
 File.WriteAllBytes(compressedFilePath, cbinFileBytes);
 
 Console.WriteLine($"Сжатый файл: {compressedFilePath} ({cbinFileBytes.Length} байт)");

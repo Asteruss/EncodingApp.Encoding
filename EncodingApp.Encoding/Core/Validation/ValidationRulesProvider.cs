@@ -16,6 +16,8 @@ public static class ValidationRulesProvider
         var transformers = new[] { "BWTEncoder", "MTFEncoder", "DeltaEncoder" };
         var entropy = new[] { "HuffmanEncoder", "ArithmeticEncoder" };
         var dictionary = new[] { "LZ77Encoder", "LZWEncoder" };
+        var rle = new[] { "RLEEncoder", "RLEEncoderWithEspaceByte", "RLE0Encoder" };
+
 
         foreach (var t in transformers)
         {
@@ -23,8 +25,8 @@ public static class ValidationRulesProvider
             {
                 Target = t,
                 Type = "RequiresAnyOf",
-                RequiredIds = CombineArrays(entropy, new[] { "RLEEncoder" }),
-                Message = $"{names[t]} не сжимает данные сам по себе. Добавьте {FormatNames(entropy)} или RLE."
+                RequiredIds = CombineArrays(entropy, rle),
+                Message = $"{names[t]} не сжимает данные сам по себе. Добавьте {FormatNames(entropy)} или {FormatNames(rle)}."
             });
         }
 
@@ -45,21 +47,21 @@ public static class ValidationRulesProvider
         });
 
         foreach (var d in dictionary)
-        {
             rules.Add(new ValidationRule
             {
                 Target = d,
                 Type = "PreferredFirst",
                 Message = $"{names[d]} лучше работает в начале цепочки (до блоковых трансформаций)."
             });
-        }
+        
 
-        rules.Add(new ValidationRule
-        {
-            Target = "RLEEncoder",
-            Type = "WarnIfAlone",
-            Message = $"RLE на текстах или случайных данных может увеличить размер в 2 раза."
-        });
+        foreach (var r in rle)
+            rules.Add(new ValidationRule
+            {
+                Target = r,
+                Type = "WarnIfAlone",
+                Message = $"RLE на текстах или случайных данных может увеличить размер в 2 раза."
+            });
 
         return rules;
     }

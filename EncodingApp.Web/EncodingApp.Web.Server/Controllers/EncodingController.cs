@@ -41,7 +41,7 @@ public class CompressionController : ControllerBase
         }
         catch
         {
-            return BadRequest("Неверный формат списка алгоритмов. Ожидается: RLEEncoder,MTFEncoder,HuffmanEncoder");
+            return BadRequest("Неверный формат списка алгоритмов. Ожидается: RLE, MTF, Huffman");
         }
 
         var encoders = selectedAlgorithms.Select(AlgorithmRegistry.Create).ToArray();
@@ -60,14 +60,12 @@ public class CompressionController : ControllerBase
                 new GcPressureAnalyzer()
             );
 
-            // Передаем локальные анализаторы в этот конвейер
             var pipeline = new CompressionPipeline(encoders, localAnalyzers);
 
             PipelineResult encodedResult = pipeline.ProcessEncode(originalBytes);
             byte[] cbinBytes = CbinFormatter.Pack(encodedResult, originalBytes.Length, file.FileName, selectedAlgorithms);
             string base64Cbin = Convert.ToBase64String(cbinBytes);
 
-            // Забираем отчет ТОЛЬКО для текущего файла
             var metrics = localAnalyzers.GetReport();
 
             results.Add(new
@@ -122,7 +120,6 @@ public class CompressionController : ControllerBase
             }
             catch (Exception ex)
             {
-                // Если файл оказался кривым (не .cbin или сломанный старым форматом), просто логируем и идем к следующему.
                 Console.WriteLine($"Ошибка распаковки {file.FileName}: {ex.Message}");
             }
         }

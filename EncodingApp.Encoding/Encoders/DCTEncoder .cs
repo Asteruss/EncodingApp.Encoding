@@ -16,10 +16,12 @@ public class DCTEncoder
     private const string KeyOriginalLength = "DCTOriginalLength";
     private const string KeyQuality = "DCTQuality";
 
-    public string DisplayName => "DCT";
+    public string DisplayName => "DCT кодирование";
 
     private readonly int _width;
     private readonly int _quality;
+
+    public DCTEncoder() : this(8, 90) { }
 
     public DCTEncoder(int width = 8, int quality = 90)
     {

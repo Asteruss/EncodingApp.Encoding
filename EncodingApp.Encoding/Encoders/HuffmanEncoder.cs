@@ -7,7 +7,7 @@ namespace EncodingApp.Encoding.Encoders;
 public class HuffmanEncoder : IEncoder
 {
     private const string MetadataKey = "HuffmanFreqs";
-    public string DisplayName => "Хаффман";
+    public string DisplayName => "Кодирование Хаффмана";
     public EncodingResult Encode(ReadOnlyMemory<byte> input)
     {
         ReadOnlySpan<byte> inputSpan = input.Span;

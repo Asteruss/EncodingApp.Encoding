@@ -6,7 +6,7 @@ namespace EncodingApp.Encoding.Encoders;
 
 public class BWTEncoder : IEncoder
 {
-    public string DisplayName => "BWT (Преобразование Барроуза-Уилера)";
+    public string DisplayName => "BWT кодирование";
     private const string MetadataKey = "BwtOriginalIndex";
 
     public EncodingResult Encode(ReadOnlyMemory<byte> input)

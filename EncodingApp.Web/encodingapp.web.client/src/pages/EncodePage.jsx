@@ -63,6 +63,13 @@ export default function EncodePage() {
         setWarnings(newWarnings);
     }, [chain, rules]);
 
+    const getStepDisplayName = (stepName) => {
+        if (!stepName) return "N/A";
+        const algorithmId = stepName.replace(/_?(Encode|Decode)$/i, '');
+        const matched = availableAlgorithms.find(a => a.id === algorithmId);
+        return matched?.displayName ?? algorithmId; // если не нашли — хотя бы без "_Encode"
+    };
+
     // 3. Работа с файлами
     const handleFiles = (e) => {
         let selectedFiles = e.target.files || e.dataTransfer.files;
@@ -74,6 +81,48 @@ export default function EncodePage() {
         setFileItems(prev => [...prev, ...newItems]);
         setErrors(prev => ({ ...prev, files: '' }));
     };
+
+    const HISTORY_STORAGE_KEY = 'compression_history';
+    const MAX_HISTORY_ENTRIES = 100;
+
+    const loadEncodeHistory = () => {
+        try {
+            const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+            console.error("Не удалось прочитать историю из localStorage:", err);
+            return [];
+        }
+    };
+
+    const saveEncodeHistory = (newResults) => {
+        if (!Array.isArray(newResults) || newResults.length === 0) {
+            console.warn("saveEncodeHistory: newResults не является непустым массивом, пропускаем сохранение", newResults);
+            return;
+        }
+
+        try {
+            const existing = loadEncodeHistory();
+            const entries = newResults.map(res => ({
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                originalName: res?.originalName ?? 'Без имени',
+                chain: res?.chain ?? [],
+                metrics: res?.metrics ?? null,
+                timestamp: new Date().toISOString()
+            }));
+
+            const updated = [...existing, ...entries];
+            const trimmed = updated.length > MAX_HISTORY_ENTRIES
+                ? updated.slice(updated.length - MAX_HISTORY_ENTRIES)
+                : updated;
+
+            localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(trimmed));
+        } catch (err) {
+            console.error("Не удалось сохранить историю в localStorage:", err);
+        }
+    };
+
 
     const removeFile = (idToRemove) => {
         setFileItems(prev => prev.filter(item => item.id !== idToRemove));
@@ -154,7 +203,9 @@ export default function EncodePage() {
             })
             .then(data => {
                 console.log(data);
+                console.log(data.metrics);
                 setResults(data);
+                saveEncodeHistory(data);
                 setFileItems([]);
                 setErrors({ files: '', algorithms: '' });
                 setWarnings([]);
@@ -302,7 +353,7 @@ export default function EncodePage() {
                             <tbody>
                                 {(fileMetrics.timing || []).map((m, i) => (
                                     <tr key={i}>
-                                        <td>{m?.stepName ?? "N/A"}</td>
+                                        <td>{getStepDisplayName(m?.stepName)}</td>
                                         <td>{formatNumber(m?.elapsedMilliseconds)}</td>
                                         <td>{formatNumber(m?.throughputMBps)}</td>
                                     </tr>
@@ -323,7 +374,7 @@ export default function EncodePage() {
                                     const gc = fileMetrics.gc?.[i];
                                     return (
                                         <tr key={i}>
-                                            <td>{m?.stepName ?? "N/A"}</td>
+                                            <td>{getStepDisplayName(m?.stepName)}</td>
                                             <td>{formatNumber(m?.compressionRatio, 3)}</td>
                                             <td>{m?.spaceSavedPercent !== null && m?.spaceSavedPercent !== undefined ? `${formatNumber(m.spaceSavedPercent, 1)}%` : "N/A"}</td>
                                             <td>{formatBytes(gc?.allocatedBytesDelta)}</td>

@@ -15,7 +15,7 @@ public class LZ77Encoder : IEncoder
     private const int HashSize = 1 << HashBits;
     private const int MaxChainLength = 64;
 
-    public string DisplayName => "LZ77";
+    public string DisplayName => "Алгоритм Лемпеля-Зива-Велча(LZ77)";
 
     private readonly struct Token
     {
