@@ -188,10 +188,6 @@ public class RLE0Encoder : IEncoder
         };
     }
 
-    /// <summary>
-    /// Выбирает 3 наименее частых байтовых значения среди 1..255 (0 исключён —
-    /// им управляет структура формата, а не резервирование) под RUNA/RUNB/LIT_ESC.
-    /// </summary>
     private static (byte runA, byte runB, byte litEsc) FindMarkerBytes(ReadOnlySpan<byte> input)
     {
         Span<int> counts = stackalloc int[256];
